@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import axios from "axios";
 import dotenv from "dotenv";
+import xlsx from "xlsx";
 
 dotenv.config();
 
@@ -31,9 +32,7 @@ app.post("/chat", async (req, res) => {
       }
     );
 
-    // CORRECT FIELD FOR PROJECT KEYS
     const replyText = response.data.output[0].content[0].text;
-
     res.json({ reply: replyText });
 
   } catch (error) {
@@ -41,8 +40,6 @@ app.post("/chat", async (req, res) => {
     res.status(500).json({ error: error.response?.data || error.message });
   }
 });
-
-
 
 // HEALTH CHECK
 app.get("/health", (req, res) => {
@@ -54,10 +51,7 @@ app.get("/", (req, res) => {
   res.send("Emerald Pantry Backend is running!");
 });
 
-// START SERVER
-const PORT = process.env.PORT || 3000;
-import xlsx from "xlsx";
-
+// ASK-SHEET (Hybrid Mode)
 app.post("/ask-sheet", async (req, res) => {
   try {
     const question = req.body.question || req.body.message || "";
@@ -98,7 +92,7 @@ app.post("/ask-sheet", async (req, res) => {
       return res.json({ reply: sheetReply });
     }
 
-    // Fallback: normal chat behavior (general assistant)
+    // Fallback: normal chat behavior
     const chatResponse = await axios.post(
       "https://api.openai.com/v1/responses",
       {
@@ -118,12 +112,117 @@ app.post("/ask-sheet", async (req, res) => {
 
     const chatReply = chatResponse.data.output[0].content[0].text;
     res.json({ reply: chatReply });
+
   } catch (error) {
     console.error("Ask-sheet Error:", error.response?.data || error.message);
     res.status(500).json({ error: error.response?.data || error.message });
   }
 });
 
+// OPEN FOOD FACTS API
+app.post("/ask-openfood", async (req, res) => {
+  try {
+    const question = req.body.question || req.body.message || "";
+    const barcode = req.body.barcode;
+
+    if (!barcode) {
+      return res.status(400).json({ error: "Please provide a barcode." });
+    }
+
+    const offResponse = await axios.get(
+      `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
+    );
+
+    const offData = offResponse.data;
+
+    const aiResponse = await axios.post(
+      "https://api.openai.com/v1/responses",
+      {
+        model: process.env.MODEL,
+        input: [
+          {
+            role: "system",
+            content:
+              "You are Emerald Pantry. Use the Open Food Facts data to help customers understand nutrition, allergens, eco-score, and healthiness. Do not invent values."
+          },
+          {
+            role: "user",
+            content: `Open Food Facts data: ${JSON.stringify(
+              offData
+            )}\n\nCustomer question: ${question}`
+          }
+        ]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const reply = aiResponse.data.output[0].content[0].text;
+    res.json({ reply });
+
+  } catch (error) {
+    console.error("OpenFood Error:", error.response?.data || error.message);
+    res.status(500).json({ error: error.response?.data || error.message });
+  }
+});
+
+// COMBINED SHEET + OPEN FOOD FACTS
+app.post("/ask-combined-food", async (req, res) => {
+  try {
+    const question = req.body.question || req.body.message || "";
+    const barcode = req.body.barcode;
+
+    const workbook = xlsx.readFile("./data/emerald_pantry.xlsx");
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const products = xlsx.utils.sheet_to_json(sheet);
+
+    const offResponse = await axios.get(
+      `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
+    );
+    const offData = offResponse.data;
+
+    const aiResponse = await axios.post(
+      "https://api.openai.com/v1/responses",
+      {
+        model: process.env.MODEL,
+        input: [
+          {
+            role: "system",
+            content:
+              "You are Emerald Pantry. Use BOTH the sheet data and Open Food Facts data to help customers. Do not invent values."
+          },
+          {
+            role: "user",
+            content: `Sheet data: ${JSON.stringify(
+              products
+            )}\n\nOpen Food Facts data: ${JSON.stringify(
+              offData
+            )}\n\nCustomer question: ${question}`
+          }
+        ]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const reply = aiResponse.data.output[0].content[0].text;
+    res.json({ reply });
+
+  } catch (error) {
+    console.error("Combined Food Error:", error.response?.data || error.message);
+    res.status(500).json({ error: error.response?.data || error.message });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

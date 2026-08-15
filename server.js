@@ -66,7 +66,8 @@ app.post("/ask-sheet", async (req, res) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const products = xlsx.utils.sheet_to_json(sheet);
 
-    const response = await axios.post(
+    // 1) Ask model to answer using ONLY the sheet
+    const sheetResponse = await axios.post(
       "https://api.openai.com/v1/responses",
       {
         model: process.env.MODEL,
@@ -74,11 +75,11 @@ app.post("/ask-sheet", async (req, res) => {
           {
             role: "system",
             content:
-              "You are Emerald Pantry. Use the sheet data when answering product, price, stock, availability, or offer questions. If the sheet contains the answer, cite the relevant product and field. If the sheet does not contain the answer or the user asks for general chat, answer naturally and helpfully. Never invent sheet values."
+              "You are Emerald Pantry. Answer ONLY using the sheet data provided. If the answer is not in the sheet, reply exactly: Not found in sheet."
           },
           {
             role: "user",
-            content: `Sheet data: ${JSON.stringify(products)}\n\nUser question: ${question}`
+            content: `Sheet data: ${JSON.stringify(products)}\n\nQuestion: ${question}`
           }
         ]
       },
@@ -90,13 +91,39 @@ app.post("/ask-sheet", async (req, res) => {
       }
     );
 
-    const reply = response.data.output[0].content[0].text;
-    res.json({ reply });
+    const sheetReply = sheetResponse.data.output[0].content[0].text.trim();
+
+    // 2) If sheet has it, return it. Otherwise, fallback to normal chat.
+    if (sheetReply && sheetReply !== "Not found in sheet.") {
+      return res.json({ reply: sheetReply });
+    }
+
+    // Fallback: normal chat behavior (general assistant)
+    const chatResponse = await axios.post(
+      "https://api.openai.com/v1/responses",
+      {
+        model: process.env.MODEL,
+        input: [
+          { role: "system", content: process.env.SYSTEM_PROMPT },
+          { role: "user", content: question }
+        ]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const chatReply = chatResponse.data.output[0].content[0].text;
+    res.json({ reply: chatReply });
   } catch (error) {
-    console.error("Sheet Error:", error.response?.data || error.message);
+    console.error("Ask-sheet Error:", error.response?.data || error.message);
     res.status(500).json({ error: error.response?.data || error.message });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

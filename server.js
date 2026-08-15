@@ -31,7 +31,9 @@ app.post("/chat", async (req, res) => {
       }
     );
 
-    const replyText = response.data.output_text;
+    // CORRECT FIELD FOR PROJECT KEYS
+    const replyText = response.data.output[0].content[0].text;
+
     res.json({ reply: replyText });
 
   } catch (error) {
@@ -39,6 +41,7 @@ app.post("/chat", async (req, res) => {
     res.status(500).json({ error: error.response?.data || error.message });
   }
 });
+
 
 
 // HEALTH CHECK

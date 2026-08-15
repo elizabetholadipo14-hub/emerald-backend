@@ -9,6 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// CHAT ENDPOINT
 app.post("/chat", async (req, res) => {
   try {
     const userMessage = req.body.message;
@@ -31,7 +32,6 @@ app.post("/chat", async (req, res) => {
     );
 
     const replyText = response.data.output[0].content;
-
     res.json({ reply: replyText });
 
   } catch (error) {
@@ -40,37 +40,17 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-
-    const replyText = response.data.output[0].content;
-
-    res.json({ reply: replyText });
-
-  } catch (error) {
-    console.error("Error:", error.response?.data || error.message);
-    res.status(500).json({ error: "Something went wrong" });
-  }
-});
-
-
-    const replyText = response.data.output[0].content;
-
-    res.json({ reply: replyText });
-
-  } catch (error) {
-    console.error("Error:", error.response?.data || error.message);
-    res.status(500).json({ error: "Something went wrong" });
-  }
-});
-
-
-app.get("/", (req, res) => {
-  res.send("Emerald Pantry Backend is running!");
-});
-
+// HEALTH CHECK
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+// ROOT ROUTE
+app.get("/", (req, res) => {
+  res.send("Emerald Pantry Backend is running!");
+});
+
+// START SERVER
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

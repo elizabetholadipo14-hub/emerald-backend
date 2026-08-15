@@ -14,10 +14,10 @@ app.post("/chat", async (req, res) => {
     const userMessage = req.body.message;
 
     const response = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+      "https://api.openai.com/v1/responses",
       {
         model: "gpt-4o-mini",
-        messages: [
+        input: [
           { role: "system", content: "You are Emerald Pantry, a friendly grocery assistant." },
           { role: "user", content: userMessage }
         ]
@@ -31,13 +31,14 @@ app.post("/chat", async (req, res) => {
     );
 
     res.json({
-      reply: response.data.choices[0].message.content
+      reply: response.data.output_text
     });
   } catch (error) {
     console.error("Error:", error.response?.data || error.message);
     res.status(500).json({ error: "Something went wrong" });
   }
 });
+
 
 app.get("/", (req, res) => {
   res.send("Emerald Pantry Backend is running!");

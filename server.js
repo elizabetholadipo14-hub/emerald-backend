@@ -17,9 +17,9 @@ app.post("/chat", async (req, res) => {
     const response = await axios.post(
       "https://api.openai.com/v1/responses",
       {
-        model: "gpt-4o-mini",
+        model: process.env.MODEL,
         input: [
-          { role: "system", content: "You are Emerald Pantry, a friendly grocery assistant." },
+          { role: "system", content: process.env.SYSTEM_PROMPT },
           { role: "user", content: userMessage }
         ]
       },
@@ -31,14 +31,15 @@ app.post("/chat", async (req, res) => {
       }
     );
 
-    const replyText = response.data.output[0].content;
+    const replyText = response.data.output_text;
     res.json({ reply: replyText });
 
   } catch (error) {
-    console.error("Error:", error.response?.data || error.message);
-    res.status(500).json({ error: "Something went wrong" });
+    console.error("OpenAI Error:", error.response?.data || error.message);
+    res.status(500).json({ error: error.response?.data || error.message });
   }
 });
+
 
 // HEALTH CHECK
 app.get("/health", (req, res) => {

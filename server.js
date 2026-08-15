@@ -41,6 +41,17 @@ app.post("/chat", async (req, res) => {
 });
 
 
+    const replyText = response.data.output[0].content;
+
+    res.json({ reply: replyText });
+
+  } catch (error) {
+    console.error("Error:", error.response?.data || error.message);
+    res.status(500).json({ error: "Something went wrong" });
+  }
+});
+
+
 app.get("/", (req, res) => {
   res.send("Emerald Pantry Backend is running!");
 });

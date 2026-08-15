@@ -30,9 +30,10 @@ app.post("/chat", async (req, res) => {
       }
     );
 
-    res.json({
-      reply: response.data.output_text
-    });
+    const replyText = response.data.output[0].content;
+
+    res.json({ reply: replyText });
+
   } catch (error) {
     console.error("Error:", error.response?.data || error.message);
     res.status(500).json({ error: "Something went wrong" });

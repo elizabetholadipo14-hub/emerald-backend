@@ -60,7 +60,7 @@ import xlsx from "xlsx";
 
 app.post("/ask-sheet", async (req, res) => {
   try {
-    const question = req.body.question;
+    const question = req.body.question || req.body.message || "";
 
     const workbook = xlsx.readFile("./data/emerald_pantry.xlsx");
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -74,13 +74,11 @@ app.post("/ask-sheet", async (req, res) => {
           {
             role: "system",
             content:
-              "You are Emerald Pantry. Answer ONLY using the sheet data provided. If the answer is not in the sheet, say 'Not found in sheet'."
+              "You are Emerald Pantry. Use the sheet data when answering product, price, stock, availability, or offer questions. If the sheet contains the answer, cite the relevant product and field. If the sheet does not contain the answer or the user asks for general chat, answer naturally and helpfully. Never invent sheet values."
           },
           {
             role: "user",
-            content: `Sheet data: ${JSON.stringify(
-              products
-            )}\n\nQuestion: ${question}`
+            content: `Sheet data: ${JSON.stringify(products)}\n\nUser question: ${question}`
           }
         ]
       },
@@ -93,13 +91,13 @@ app.post("/ask-sheet", async (req, res) => {
     );
 
     const reply = response.data.output[0].content[0].text;
-
     res.json({ reply });
   } catch (error) {
     console.error("Sheet Error:", error.response?.data || error.message);
     res.status(500).json({ error: error.response?.data || error.message });
   }
 });
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
